@@ -3,46 +3,46 @@ version: "3.8"
 
 services:
   frontend:
-    # file:frontend
-    # Usar Node 20 para compatibilidad con Vite (requiere >=20.19.0)
-    # Cambio a `node:20-alpine` para evitar tags inválidos en algunos registries
-    image: node:20-alpine
-    working_dir: /usr/src/app
-    volumes:
-      - ./frontend:/usr/src/app:cached
-      - /usr/src/app/node_modules
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
+    # Build frontend from its own directory with production Dockerfile
+    build:
+      context: ./frontend
+      dockerfile: ../frontend.Dockerfile
+    image: newgral_frontend:latest
     ports:
-      - "5173:5173"
-    command: ["sh", "-c", "npm install --no-audit --no-fund || true && npm run dev -- --host 0.0.0.0"]
+      - "3000:3000"
+    environment:
+      # Backend API connection - uses service name for internal network resolution
+      - VITE_API_URL=http://backend:8080
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks:
+      - webnet
     restart: unless-stopped
 
-    network_mode: host
-
   backend:
-    # build from repo root using backend/Dockerfile which expects quickshift/ in the context
+    # Build backend from backend directory using its Dockerfile
     build:
       context: ./backend
       dockerfile: Dockerfile
     image: newgral_quickshift:latest
     working_dir: /app/quickshift
+    ports:
+      - "8080:8080"
     env_file:
       - backend/quickshift/.env.example
     environment:
-      # conexión a la base de datos interna del compose
+      # Database connection using service name 'db' for network resolution
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/quickshift?sslmode=disable
-    # Usar la red del host evita que el proveedor de red cree interfaces TUN/TAP
-    # dentro del contenedor (útil en entornos donde el kernel no tiene soporte tun)
-    network_mode: host
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - webnet
     restart: unless-stopped
-    # note: using network_mode: host, so do not declare `networks` here
 
   db:
-    # Uso la referencia completa para evitar problemas de short-name resolution en Podman
+    # PostgreSQL database service
     image: docker.io/library/postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
@@ -53,14 +53,13 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL","pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - webnet
     restart: unless-stopped
-    # Montar dispositivo TUN en caso de que la red cree interfaces TUN/TAP
-    # En desarrollo usamos la red del host para evitar problemas con TUN/TAP
-    network_mode: host
 
 volumes:
   db_data:
