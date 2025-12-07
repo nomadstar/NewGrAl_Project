@@ -4,7 +4,9 @@ version: "3.8"
 services:
   frontend:
     # file:frontend
-    image: node:18-alpine
+    # Usar Node 20 para compatibilidad con Vite (requiere >=20.19.0)
+    # Cambio a `node:20-alpine` para evitar tags inválidos en algunos registries
+    image: node:20-alpine
     working_dir: /usr/src/app
     volumes:
       - ./frontend:/usr/src/app:cached
@@ -22,8 +24,8 @@ services:
   backend:
     # build from repo root using backend/Dockerfile which expects quickshift/ in the context
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     image: newgral_quickshift:latest
     working_dir: /app/quickshift
     env_file:
@@ -40,7 +42,8 @@ services:
       - webnet
 
   db:
-    image: postgres:15-alpine
+    # Uso la referencia completa para evitar problemas de short-name resolution en Podman
+    image: docker.io/library/postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
