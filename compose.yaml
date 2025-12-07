@@ -18,8 +18,8 @@ services:
       - "5173:5173"
     command: ["sh", "-c", "npm install --no-audit --no-fund || true && npm run dev -- --host 0.0.0.0"]
     restart: unless-stopped
-    networks:
-      - webnet
+
+    network_mode: host
 
   backend:
     # build from repo root using backend/Dockerfile which expects quickshift/ in the context
@@ -33,13 +33,13 @@ services:
     environment:
       # conexión a la base de datos interna del compose
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/quickshift?sslmode=disable
-    ports:
-      - "8080:8080"
+    # Usar la red del host evita que el proveedor de red cree interfaces TUN/TAP
+    # dentro del contenedor (útil en entornos donde el kernel no tiene soporte tun)
+    network_mode: host
     depends_on:
       - db
     restart: unless-stopped
-    networks:
-      - webnet
+    # note: using network_mode: host, so do not declare `networks` here
 
   db:
     # Uso la referencia completa para evitar problemas de short-name resolution en Podman
@@ -58,8 +58,9 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    networks:
-      - webnet
+    # Montar dispositivo TUN en caso de que la red cree interfaces TUN/TAP
+    # En desarrollo usamos la red del host para evitar problemas con TUN/TAP
+    network_mode: host
 
 volumes:
   db_data:
