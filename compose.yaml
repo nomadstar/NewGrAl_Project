@@ -6,7 +6,7 @@ services:
     # Build frontend from its own directory with production Dockerfile
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: ../frontend.Dockerfile
     image: newgral_frontend:latest
     ports:
       - "3000:3000"
