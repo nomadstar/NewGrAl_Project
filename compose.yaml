@@ -3,46 +3,46 @@ version: "3.8"
 
 services:
   frontend:
-    # Build frontend from its own directory with production Dockerfile
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     image: newgral_frontend:latest
-    ports:
-      - "3000:3000"
+    working_dir: /usr/src/app
+    volumes:
+      - ./frontend:/usr/src/app:cached
+      - /usr/src/app/node_modules
     environment:
-      # Backend API connection - uses service name for internal network resolution
-      - VITE_API_URL=http://backend:8080
-      - NODE_ENV=production
-    depends_on:
-      - backend
-    networks:
-      - webnet
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "5173:5173"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
     restart: unless-stopped
 
+    network_mode: host
+
   backend:
-    # Build backend from backend directory using its Dockerfile
+    # build from repo root using backend/Dockerfile which expects quickshift/ in the context
     build:
       context: ./backend
       dockerfile: Dockerfile
     image: newgral_quickshift:latest
     working_dir: /app/quickshift
-    ports:
-      - "8080:8080"
     env_file:
       - backend/quickshift/.env.example
     environment:
-      # Database connection using service name 'db' for network resolution
+      # conexión a la base de datos interna del compose
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/quickshift?sslmode=disable
+    # Usar la red del host evita que el proveedor de red cree interfaces TUN/TAP
+    # dentro del contenedor (útil en entornos donde el kernel no tiene soporte tun)
+    network_mode: host
     depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - webnet
+      - db
     restart: unless-stopped
+    # note: using network_mode: host, so do not declare `networks` here
 
   db:
-    # PostgreSQL database service
+    # Uso la referencia completa para evitar problemas de short-name resolution en Podman
     image: docker.io/library/postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
@@ -53,13 +53,14 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL","pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - webnet
     restart: unless-stopped
+    # Montar dispositivo TUN en caso de que la red cree interfaces TUN/TAP
+    # En desarrollo usamos la red del host para evitar problemas con TUN/TAP
+    network_mode: host
 
 volumes:
   db_data:
