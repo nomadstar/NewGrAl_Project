@@ -3,5 +3,5 @@
 	url = https://github.com/nomadstar/GA_Backend.git
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/Aliagaaaaaa/horarios-frontend.git
+	url = https://github.com/nomadstar/horarios-frontend.git
 	ignore = untracked
