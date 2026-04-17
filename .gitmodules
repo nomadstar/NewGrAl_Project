@@ -4,4 +4,3 @@
 [submodule "frontend"]
 	path = frontend
 	url = https://github.com/nomadstar/horarios-frontend.git
-	ignore = untracked
